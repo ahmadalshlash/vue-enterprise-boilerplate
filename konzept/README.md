@@ -1,4 +1,4 @@
-# Nearby – Offline-Kontakt-App (Arbeitstitel)
+# Umkreis – Offline-Kontakt-App
 
 > Menschen im Umkreis von 10 bis 100 Metern entdecken, anonym oder mit Profil
 > anschreiben und lokal posten – **ganz ohne Internet, ohne Server, ohne Account.**
@@ -214,10 +214,14 @@ Zusätzlich sinnvoll:
 
 ## 8. Offene Produkt-Entscheidungen
 
-Diese Punkte müssen vor dem Bau des MVP entschieden werden:
+Für das MVP wurde entschieden (änderbar):
 
-1. **Tech-Stack** → Empfehlung und Alternativen in [technik.md](technik.md#5-tech-stack-vergleich-und-empfehlung).
-2. **Standard-Modus beim ersten Start**: Anonym (empfohlen: niedrige Hürde, sicher) oder Unsichtbar (maximal privat, aber leere Radare für alle).
-3. **Name & Branding**: „Nearby“ ist ein Arbeitstitel und kollidiert mit Google-Produkten. Alternativen: *Umkreis*, *Radius*, *Nebenan* (Konflikt mit nebenan.de), *Hier*, *Funken*.
-4. **Board-Reichweite im MVP**: nur direkte Reichweite (einfach, sicher) oder von Anfang an Mesh (spannender, aber deutlich komplexer).
-5. **Alias-Sprache**: nur Deutsch, oder von Anfang an DE/EN generieren.
+1. **Tech-Stack**: Flutter → Begründung in [technik.md](technik.md#5-tech-stack-vergleich-und-empfehlung).
+2. **Standard-Modus beim ersten Start**: Anonym (niedrige Hürde, sicher).
+3. **Name**: *Umkreis* (Arbeitstitel „Nearby“ kollidierte mit Google-Produkten). Alternativen bleiben *Radius*, *Hier*, *Funken*.
+4. **Board-Reichweite im MVP**: nur direkte Reichweite; Mesh ist Phase 3.
+5. **Alias-Sprache**: DE und EN, je nach App-Sprache.
+
+Offen bleibt die **Kalibrierung der Nähe-Stufen** auf echten Geräten und die
+Entscheidung, ob der Android-Hintergrund-Betrieb (Foreground Service) schon in
+Phase 2 kommt.

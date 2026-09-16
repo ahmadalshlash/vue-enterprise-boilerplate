@@ -107,7 +107,9 @@ entscheidet den Vergleich.
 | **Capacitor + Vue** (dieses Repo) | ❌ `@capacitor-community/bluetooth-le` nur Central; kein gepflegtes Peripheral-Plugin → eigenes Plugin in Swift **und** Kotlin | ✅ Web-UI | sehr hoch | Vue-Kenntnisse helfen, aber der schwierige Teil (BLE) muss trotzdem nativ zweimal gebaut werden |
 | Kotlin Multiplatform + Compose MP | ⚠️ BLE muss selbst pro Plattform angebunden werden | ✅ Logik, UI weitgehend | gering | interessant, aber Ökosystem für BLE noch dünn |
 
-### Empfehlung: Flutter
+### Entscheidung: Flutter (umgesetzt)
+
+Die App ist mit Flutter gebaut; die Begründung im Detail:
 
 1. **Einzige Cross-Platform-Option mit fertigen, gepflegten Paketen für beide
    BLE-Rollen** – der riskanteste Teil des Projekts ist damit nicht selbst zu bauen.
@@ -122,40 +124,47 @@ entscheidet den Vergleich.
 Akku-Effizienz von Tag 1 Priorität haben und zwei Entwickler (Swift, Kotlin)
 verfügbar sind.
 
-**Was mit diesem Vue-Repo passiert:** Das Vue-2-Boilerplate (Vue CLI, Vuex 3,
-Jahrgang 2020) ist für eine Mobile-App mit Bluetooth ungeeignet und sollte
-**nicht** die Basis sein. Optionen: neues Repo für die App, oder dieses Repo
-wird geleert und mit dem Flutter-Projekt neu befüllt. Eine Vue-Landingpage
-für die App kann später separat entstehen.
+**Was mit dem Vue-Repo passiert ist:** Das ursprüngliche Vue-2-Boilerplate
+(Vue CLI, Vuex 3, Jahrgang 2020) war für eine Mobile-App mit Bluetooth
+ungeeignet und wurde vollständig durch das Flutter-Projekt ersetzt. Eine
+Web-Landingpage kann später separat entstehen.
 
-## 6. Ziel-Architektur (Flutter)
+## 6. Architektur (Flutter, wie umgesetzt)
 
 ```text
 lib/
 ├── main.dart
-├── app/                 Router, Theme, Lokalisierung (DE/EN)
+├── app/                 App-Shell mit Tab-Leiste, Theme, Lokalisierung (DE/EN),
+│                        Bootstrap (BLE oder Demo), Berechtigungen
 ├── features/
-│   ├── radar/           Liste, Ringe, Nähe-Stufen, Detail-Sheet
-│   ├── board/           Posts, Tags, Reaktionen, Melden
-│   ├── chat/            Anfragen, 1:1-Chat, Store-and-Forward-Queue
-│   ├── identity/        Modus (Unsichtbar/Anonym/Profil), Alias-Generator, Profil
-│   └── onboarding/      Erklär-Screens, Berechtigungen
+│   ├── onboarding/      Erklär-Screens, Berechtigung, Alias
+│   ├── radar/           Liste mit Nähe-Stufen, Modus-Umschalter, Detail-Sheet
+│   ├── board/           Posts, Tags, Reaktionen, Antworten, Melden
+│   ├── chat/            Anfragen, Chat-Liste, 1:1-Chat
+│   ├── me/              Modus, Alias, Status, Profil-Editor, Blockliste, Datenschutz
+│   └── shared/          UI-Bausteine
 ├── core/
-│   ├── ble/             Transport: Advertiser, Scanner, GATT-Server/-Client,
-│   │                    Chunking, Verbindungs-Pool, RSSI-Glättung
-│   ├── protocol/        Nachrichten-Codec (protokoll.md), Versionierung
-│   ├── crypto/          Schlüssel, Rotation, Noise-Handshake, Signaturen
-│   ├── storage/         DB (drift), Secure Storage, Blockliste
-│   └── moderation/      Wortfilter, Rate-Limits, Melde-Export
-└── shared/              UI-Bausteine, Utilities
+│   ├── protocol/        Konstanten, Frame-Codec, Chunking, CBOR, Datenmodelle
+│   ├── crypto/          Identität, EID-Ableitung, Alias, Handshake, Session, KeyStore
+│   ├── ble/             NearbyTransport-Interface, BleTransport (Central + Peripheral),
+│   │                    FakeWorld/FakeTransport, RSSI-Glättung und Nähe-Stufen
+│   ├── storage/         sembast-Datenbank und Repositories
+│   ├── moderation/      Blockliste/Meldungen, Rate-Limiter, Wortfilter
+│   └── services/        IdentityService, RadarService, ChatService, BoardService,
+│                        Engine (verbindet alles, routet Frames, rotiert EIDs)
+└── demo/                Simulierte Personen (vollständige Engines mit Autopilot)
 ```
 
-Schichten kommunizieren nur nach unten: `features → core`. `core/ble` kennt
-keine Chat-Logik, es transportiert Bytes. Das erlaubt später einen zweiten
-Transport (Wi-Fi Direct, Online-Relay), ohne die Features anzufassen.
+Schichten kommunizieren nur nach unten: `features → services → core`.
+`core/ble` kennt keine Chat-Logik, es transportiert Bytes. Das erlaubt später
+einen zweiten Transport (Wi-Fi Direct, Online-Relay), ohne die Features
+anzufassen, und macht die **Fake-Welt** möglich: mehrere Engines laufen im
+selben Prozess über einen simulierten Funk mit Distanz-basiertem RSSI.
 
-**Tests:** Protokoll-Codec und Krypto sind reine Dart-Logik → Unit-Tests ohne
-Gerät. BLE-Transport bekommt ein Interface + Fake für Widget-Tests. Echte
+**Tests (umgesetzt):** Protokoll-Codec, Chunking, Krypto (inkl. Handshake-
+Angriffe) als Unit-Tests; End-to-End-Tests, in denen zwei bis drei komplette
+Engines über die Fake-Welt chatten, Posts synchronisieren, blockieren und
+neu starten; Widget-Tests der Screens über dieselbe Fake-Welt. Echte
 BLE-Tests brauchen **zwei physische Geräte** (Simulatoren haben kein Bluetooth);
 Testmatrix minimal: 1 iPhone + 1 Android (idealerweise ein günstiges Gerät
 eines Herstellers mit aggressiver Akku-Optimierung).

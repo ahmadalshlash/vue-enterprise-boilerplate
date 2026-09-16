@@ -1,0 +1,39 @@
+name: umkreis
+description: "Umkreis – Menschen im Umkreis von 10 bis 100 Metern offline per Bluetooth finden, anonym oder mit Profil anschreiben und lokal posten."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.3
+
+dependencies:
+  bluetooth_low_energy: ^6.2.1
+  cbor: ^6.5.1
+  crypto: ^3.0.7
+  cryptography: ^2.9.0
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  flutter_secure_storage: ^11.2.0
+  path_provider: ^2.1.6
+  permission_handler: ^13.0.2
+  provider: ^6.1.5+1
+  sembast: ^3.8.10
+  shared_preferences: ^2.5.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  # Kleiner Ausschnitt aus Noto Color Emoji (nur die in der App verwendeten
+  # Emojis), damit Alias-Tiere und Reaktionen auch dort erscheinen, wo kein
+  # System-Emoji-Font greift (z. B. Web-Demo).
+  fonts:
+    - family: UmkreisEmoji
+      fonts:
+        - asset: assets/fonts/UmkreisEmoji.ttf

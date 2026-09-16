@@ -92,25 +92,50 @@ Jedes sichtbare Gerät bietet einen GATT-Dienst mit derselben Service-UUID an.
 | Zweck | Algorithmus |
 | --- | --- |
 | Identität / Signaturen | Ed25519 |
-| Schlüsselaustausch | X25519 |
-| Handshake | Noise `XX` (beide Seiten authentifizieren sich, Identitäten werden verschlüsselt übertragen) |
-| Nachrichten-Verschlüsselung | XChaCha20-Poly1305 (24-Byte-Nonce, keine Nonce-Verwaltung nötig) |
+| Schlüsselaustausch | X25519 (ephemer und statisch) |
+| Handshake | Drei Nachrichten nach dem Muster von Noise `XX`: erst ephemer-ephemer, dann beidseitig verschlüsselt übertragene statische Schlüssel; Authentifizierung über Ed25519-Signaturen über das Transkript |
+| Nachrichten-Verschlüsselung | XChaCha20-Poly1305 (24-Byte-Zufalls-Nonce, Drahtformat `nonce ‖ ciphertext ‖ mac`) |
 | Hashing / KDF | SHA-256, HKDF-SHA256 |
 
 ### 4.2 Ablauf Kontaktanfrage
 
-1. A liest Presence von B, entscheidet anzuschreiben.
-2. A → B: Frame `HELLO` (Noise-Handshake-Nachricht 1: ephemerer X25519-Key).
-3. B → A: Handshake-Nachricht 2 (ephemer + verschlüsselter statischer Key von B).
-4. A → B: Handshake-Nachricht 3 (verschlüsselter statischer Key von A) **plus**
-   erste Chat-Nachricht als Payload = die Kontaktanfrage.
-5. Ab hier: Session-Keys für beide Richtungen; jede Nachricht einzeln AEAD-verschlüsselt.
-6. B sieht die Anfrage. Erst bei **Annahme** speichert B die Session dauerhaft;
-   bei Ablehnung wird sie verworfen; bei Blockieren wird As Fingerabdruck gespeichert.
+```text
+A → B  msg1 = eA                                             (Frame HELLO)
+B → A  msg2 = eB ‖ AEAD(kResp, {sB, idB, sigB})              (Frame HANDSHAKE, step 2)
+A → B  msg3 = {b: AEAD(kInit, {sA, idA, sigA}), p: AEAD(keyA→B, erste Nachricht)}
+                                                             (Frame HANDSHAKE, step 3)
 
-Das statische Schlüsselpaar für Noise ist X25519, abgeleitet aus dem
-Ed25519-Geräteschlüssel (oder als zweites Paar erzeugt und mit Ed25519 signiert).
-So sieht ein Mitschneidender nie eine Identität im Klartext.
+transcript = "umkreis/hs/1" ‖ eA ‖ eB
+ee = DH(eA, eB)   es = DH(eA, sB)   se = DH(sA, eB)
+kResp  = HKDF(ee,            salt = transcript, info = "resp-static")
+kInit  = HKDF(ee ‖ es,       salt = transcript, info = "init-static")
+master = HKDF(ee ‖ es ‖ se,  salt = transcript, info = "session")
+keyA→B = HKDF(master, salt = transcript, info = "a2b")
+keyB→A = HKDF(master, salt = transcript, info = "b2a")
+sigX   = Ed25519(idX, transcript ‖ rolle ‖ sX)      rolle ∈ {"init", "resp"}
+```
+
+1. A liest Presence von B, entscheidet anzuschreiben.
+2. A → B: `HELLO` mit As ephemerem X25519-Key.
+3. B → A: `HANDSHAKE` Schritt 2 mit Bs ephemerem Key und Bs verschlüsseltem, signiertem statischem Bündel.
+4. A prüft Bs Signatur, sendet `HANDSHAKE` Schritt 3 mit eigenem Bündel **plus**
+   erster Chat-Nachricht = die Kontaktanfrage.
+5. Ab hier: ein Schlüssel pro Richtung; jede Nachricht einzeln AEAD-verschlüsselt.
+6. B sieht die Anfrage. Erst bei **Annahme** wird der Chat aktiv;
+   bei Ablehnung bleibt er stumm; bei Blockieren wird As Fingerabdruck gespeichert.
+   Ist A bereits blockiert, verwirft B den Handshake still.
+
+Ein Mitschneidender sieht nie eine Identität im Klartext (Tests prüfen, dass
+keine Public Keys in msg1–msg3 vorkommen), und ein Angreifer, der `eB`
+austauscht, scheitert an Bs Signatur über das Transkript.
+
+### 4.2.1 Kontakt-Schlüssel (Wiedererkennung über EIDs)
+
+Nach Annahme schickt jede Seite dem Kontakt **verschlüsselt** ihr aktuelles
+`alias_secret` (Nachrichten-Art `contactKey`), ebenso nach jeder
+Alias-Rotation. Damit kann der Kontakt meine EIDs (Abschnitt 2.2) berechnen
+und wartende Nachrichten zustellen, sobald ich wieder in Reichweite bin.
+Fremde können das nicht.
 
 ### 4.3 Board-Posts
 
@@ -138,10 +163,10 @@ Jede logische Nachricht ist ein **Frame**:
 
 | type | Name | Payload |
 | --- | --- | --- |
-| `0x01` | HELLO | Noise-Handshake-Bytes |
-| `0x02` | HANDSHAKE | Noise-Handshake-Bytes (Schritt 2/3) |
-| `0x10` | MSG | verschlüsselt: `{id, ts, kind: text\|image\|reveal\|ack, body}` |
-| `0x11` | ACK | verschlüsselt: `{ids: [...]}` |
+| `0x01` | HELLO | msg1 (32 Byte ephemerer X25519-Key) |
+| `0x02` | HANDSHAKE | `{step: 2\|3, data}` (Abschnitt 4.2) |
+| `0x10` | MSG | verschlüsselt: `{id, ts, kind: text\|image\|reveal\|ack\|contactKey, body}` |
+| `0x11` | ACK | verschlüsselt: MSG mit `kind: ack`, `body` = Base64(CBOR `{ids: [...]}`) |
 | `0x20` | POST | `{id, ts, ttl, alias, emoji, tag, text, replyTo?, sig, pubkey, hops}` |
 | `0x21` | POST_REACT | `{postId, reaction, sig, pubkey}` |
 | `0x22` | POST_SYNC_REQ | `{have: [ids...]}` |
@@ -174,9 +199,15 @@ ohne Fortsetzung wird der Puffer verworfen. Maximale Frame-Größe im MVP: 4 KiB
 
 ### 6.1 MVP (nur direkte Reichweite)
 
-Nach Verbindung liest ein Gerät die **Board**-Characteristic des anderen (IDs +
-Zeitstempel), schickt `POST_SYNC_REQ` mit den IDs, die es schon hat, und
-bekommt fehlende Posts per `POST`-Frames. Beide Richtungen.
+Sobald ein Peer im Radar aufgelöst ist, liest das Gerät dessen
+**Board**-Characteristic (IDs + Zeitstempel), schickt ihm direkt alle eigenen
+Posts, die er nicht hat, und fragt mit `POST_SYNC_REQ` (eigene IDs) nach dem
+Rest; der Peer antwortet mit `POST`-Frames. Neue eigene Posts und Reaktionen
+werden zusätzlich sofort an alle aufgelösten Peers gepusht.
+
+Empfangene Posts werden verworfen, wenn Signatur, Länge, TTL (max. 24 h) oder
+Rate-Limit nicht passen; Treffer des Wortfilters werden gespeichert, aber
+ausgeblendet.
 
 ### 6.2 Mesh (Phase 3)
 
