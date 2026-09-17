@@ -1,0 +1,89 @@
+# Baut Umkreis auf GitHub-Servern: Tests, Android-APK und Web-Demo.
+# Ergebnis: ein GitHub-Release mit APK (direkt auf Android installierbar)
+# und Web-Demo-Zip, plus Artefakte am Workflow-Lauf.
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+      - claude/offline-contact-app-mnz9me
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.4
+          cache: true
+
+      - name: Abhängigkeiten
+        run: flutter pub get
+
+      - name: Analyse
+        run: flutter analyze
+
+      - name: Tests
+        run: flutter test
+
+      - name: Android-APK (Release, Debug-Signatur)
+        run: flutter build apk --release
+
+      - name: Web-Demo
+        run: |
+          flutter build web --release --no-web-resources-cdn
+          cd build && zip -qr ../umkreis-web-demo.zip web
+
+      - name: APK umbenennen
+        run: cp build/app/outputs/flutter-apk/app-release.apk umkreis-android.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: umkreis-android-apk
+          path: umkreis-android.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: umkreis-web-demo
+          path: umkreis-web-demo.zip
+
+      - name: Release veröffentlichen
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: mvp-build-${{ github.run_number }}
+          name: Umkreis MVP – Build ${{ github.run_number }}
+          prerelease: true
+          target_commitish: ${{ github.sha }}
+          body: |
+            Automatischer Build von `${{ github.ref_name }}` (${{ github.sha }}).
+
+            **Android:** `umkreis-android.apk` auf dem Handy herunterladen und öffnen.
+            Beim ersten Mal „Installation aus dieser Quelle erlauben“ bestätigen.
+            Bluetooth braucht zwei Geräte; in Emulatoren gibt es kein Bluetooth.
+
+            **Web-Demo:** `umkreis-web-demo.zip` entpacken, im Ordner `web` einen
+            lokalen Webserver starten (z. B. `python3 -m http.server 8080`) und
+            http://localhost:8080 öffnen. Läuft mit simulierten Personen.
+
+            **iPhone:** braucht Xcode auf einem Mac (`flutter run`), siehe README.
+          files: |
+            umkreis-android.apk
+            umkreis-web-demo.zip

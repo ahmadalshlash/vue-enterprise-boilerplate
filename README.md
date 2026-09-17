@@ -1,82 +1,117 @@
-# Vue Enterprise Boilerplate
+# Umkreis
 
-[![CircleCI](https://circleci.com/gh/chrisvfritz/vue-enterprise-boilerplate/tree/master.svg?style=svg)](https://circleci.com/gh/chrisvfritz/vue-enterprise-boilerplate/tree/master)
+> Menschen im Umkreis von 10 bis 100 Metern **offline** per Bluetooth finden,
+> anonym oder mit Profil anschreiben und an ein lokales Brett posten.
+> Kein Server, kein Account, keine Telefonnummer.
 
-> This is an ever-evolving, very opinionated architecture and dev environment for new Vue SPA projects using [Vue CLI](https://github.com/vuejs/vue-cli). Questions, feedback, and for now, even bikeshedding are welcome. 😄
+Flutter-App für **iPhone und Android** (Web nur als Demo). Die Konzept- und
+Protokolldokumente liegen in [`konzept/`](konzept/README.md).
 
-A big thanks to [Chris Fritz](https://www.patreon.com/chrisvuefritz) for the incredible work that he did to make this resource possible.
+## Screenshots (Demo-Modus im Browser)
 
-## Features
+| Radar | Anfrage | Chat | Board |
+| --- | --- | --- | --- |
+| ![Radar](docs/screenshots/radar.png) | ![Anfrage](docs/screenshots/anfrage.png) | ![Chat](docs/screenshots/chat.png) | ![Board](docs/screenshots/board.png) |
 
-- [**Thorough documentation**](#documentation): Written with the same care as Vue's core docs to quickly train new team members and consolidate knowledge.
-- [**Guaranteed consistency**](docs/linting.md): Opinionated linting for Vue, JavaScript/JSON, SCSS, and Markdown, integrated into Visual Studio Code and run against staged files on pre-commit.
-- [**First-class tests**](docs/tests.md): Practice test-driven development with both unit and end-to-end tests. Unit tests with Jest live as first-class citizens alongside your source files, while Cypress provides reliable end-to-end tests in an intuitive GUI for development.
-- [**Speedy development**](docs/development.md): Between [configurable generators](docs/development.md#generators), [handy aliases](docs/development.md#aliases), and [global base components](docs/development.md#base-components), your productivity will skyrocket.
+Weitere: [Onboarding](docs/screenshots/onboarding.png) · [Alias](docs/screenshots/alias.png) · [Ich](docs/screenshots/ich.png)
 
-## Getting started
+## Was die App kann (MVP)
 
-```bash
-# 1. Clone the repository.
-git clone https://github.com/chrisvfritz/vue-enterprise-boilerplate.git my-new-project
+| Bereich | Funktion |
+| --- | --- |
+| **Radar** | Zeigt alle Geräte mit der App in Funkreichweite mit Alias/Name, Emoji, Status und Nähe-Stufe (sehr nah · nah · in Reichweite). |
+| **Modi** | *Unsichtbar* (sehen, aber nicht gesehen werden), *Anonym* (zufälliger Alias, wechselt täglich, Standard), *Profil* (Name, Emoji, Bio, Interessen). |
+| **Chat** | Erste Nachricht ist eine Kontaktanfrage (annehmen / ignorieren / blockieren). Danach Ende-zu-Ende-verschlüsselter 1:1-Chat mit Zustellbestätigung. Nachrichten warten, bis der andere wieder in Reichweite ist. Profil kann im Chat „aufgedeckt“ werden. |
+| **Board** | Anonyme oder Profil-Posts mit Tag (#hilfe, #mitfahren, #verloren, #party, #frage, #notfall) und Ablaufzeit, Antworten, Reaktionen. Synchronisiert sich automatisch mit Geräten in Reichweite. |
+| **Schutz** | Blockieren (Geräte-Fingerabdruck bzw. Post-Schlüssel), Melden (lokal, exportierbar), Wortfilter, Rate-Limits, signierte Posts, rotierende Funk-Kennungen gegen Tracking. |
+| **Sprachen** | Deutsch und Englisch, in der App umschaltbar. |
 
-# 2. Enter your newly-cloned folder.
-cd my-new-project
+## Technik in einem Absatz
 
-# 3. Install dependencies. Make sure yarn is installed: https://yarnpkg.com/lang/en/docs/install
-yarn
+Jedes Gerät ist gleichzeitig BLE-**Peripheral** (sendet Advertising mit einer
+alle 15 Minuten wechselnden Kennung, bietet einen GATT-Dienst an) und BLE-
+**Central** (scannt, verbindet, liest Presence/Profil/Board, schreibt Frames).
+Chats werden über einen Noise-XX-artigen Handshake (X25519, Ed25519-Signaturen)
+aufgebaut und mit XChaCha20-Poly1305 verschlüsselt. Alles Weitere in
+[`konzept/protokoll.md`](konzept/protokoll.md).
 
-# 4. Replace this README's CI badge with a note about when you started
-# and a link to a compare URL, so that you can always get an overview
-# of new features added to the boilerplate since you cloned.
-node _start.js
+## Projektstruktur
 
-# 5. Delete the start script, as there can be only one beginning.
-rm _start.js
-
-# 6. Read the documentation linked below for "Setup and development".
+```text
+lib/
+├── main.dart                 Einstieg
+├── app/                      App-Shell, Theme, Lokalisierung, Bootstrap, Berechtigungen
+├── core/
+│   ├── protocol/             Konstanten, Frame-Codec, Chunking, CBOR, Datenmodelle
+│   ├── crypto/               Identität, EID-Ableitung, Alias, Handshake, Session
+│   ├── ble/                  Transport-Interface, BLE-Implementierung, Fake-Welt, RSSI
+│   ├── storage/              sembast-Datenbank und Repositories
+│   ├── moderation/           Blockliste, Rate-Limiter, Wortfilter
+│   └── services/             Identity, Radar, Chat, Board, Engine (verbindet alles)
+├── demo/                     Simulierte Personen für den Demo-Modus
+└── features/                 Screens: Onboarding, Radar, Board, Chats, Ich
+test/
+├── core/                     Unit- und End-to-End-Tests (zwei Engines über die Fake-Welt)
+└── widget/                   Widget-Tests der Screens
+konzept/                      Konzept, Technik-Entscheidungen, Protokoll-Spezifikation
 ```
 
-## Documentation
+Die Schichten kommunizieren nur nach unten (`features → services → core`).
+`core/ble` kennt keine Chat-Logik, es transportiert Bytes; deshalb lässt sich
+der echte Bluetooth-Transport 1:1 durch die Fake-Welt ersetzen, mit der Tests
+und der Demo-Modus laufen.
 
-This project includes a `docs` folder with more details on:
+## Entwicklung
 
-1.  [Setup and development](docs/development.md)
-1.  [Architecture](docs/architecture.md)
-1.  [Languages and technologies](docs/tech.md)
-1.  [Routing, layouts, and views](docs/routing.md)
-1.  [State management](docs/state.md)
-1.  [Tests and mocking the API](docs/tests.md)
-1.  [Linting and formatting](docs/linting.md)
-1.  [Editor integration](docs/editors.md)
-1.  [Building and deploying to production](docs/production.md)
-1.  [Troubleshooting](docs/troubleshooting.md)
+Voraussetzungen: [Flutter](https://docs.flutter.dev/get-started/install) 3.47
+oder neuer, für Android das Android SDK (minSdk 24), für iOS Xcode.
 
-## FAQ
+```bash
+flutter pub get
+flutter analyze
+flutter test
+```
 
-**Why would I use this boilerplate instead of generating a new project with [Vue CLI](https://github.com/vuejs/vue-cli) directly?**
+### Auf echten Geräten (Bluetooth)
 
-Vue CLI aims for flexibility, making it as simple as possible for any team to set up a new project, no matter how big or small, whether it's an app or a library, or what languages and technologies are being used.
+Bluetooth Low Energy funktioniert **nicht** in Emulatoren und Simulatoren.
+Für den Nähe-Test braucht es zwei physische Geräte, idealerweise ein iPhone und
+ein Android-Gerät.
 
-This boilerplate makes more assumptions. It assumes you're building a large app, possibly developed by a large team. It also makes a lot of default choices for you, based on what tends to work well for large, enterprise projects. At the same time, it aims to educate and empower users to configure these defaults to ideally suit their specific app and team.
+```bash
+flutter run            # Gerät angeschlossen; iOS braucht ein Signing-Team in Xcode
+```
 
-**Why would I use this boilerplate instead of [Nuxt](https://nuxtjs.org/)?**
+- **Android** fragt beim ersten Start die Bluetooth-Berechtigungen ab (ab
+  Android 12: Scan, Advertise, Connect; darunter Standort, es wird aber kein
+  Standort erfasst).
+- **iOS** fragt über CoreBluetooth. Ein iPhone ist nur sichtbar, solange die
+  App im Vordergrund ist (Plattform-Grenze, siehe `konzept/technik.md`).
 
-Nuxt is like a really smart personal assistant, immediately making you more productive by taking care of many concerns _for you_. This boilerplate is more of a personal coach, aiming to educate and empower users to essentially configure their _own_ framework, ideally suited to their app and team.
+Testfälle für den ersten Geräte-Test stehen in
+[`konzept/protokoll.md`](konzept/protokoll.md#9-testfälle-für-phase-0-spike).
 
-If what you're building is very well-defined, with requirements and technical challenges that won't drastically change over time, I'd probably recommend Nuxt instead. For the needs of common applications, it's more than up to the task. If you're a startup trying to prove product-market fit and your primary goal is initial development speed, that's also a point in Nuxt's favor.
+### Demo-Modus ohne Bluetooth
 
-Here's when you might prefer building a project off the boilerplate instead:
+Simulierte Personen laufen über exakt denselben Code wie echte Geräte, nur der
+Funk ist simuliert. Sie nehmen Anfragen an, antworten und posten.
 
-- The requirements for the product are very likely to change over time and you want to maintain maximum flexibility and control.
-- You'd like to focus on developing skills that will transfer across _any_ Vue project.
-- You're working in a large team, so need tooling to help everyone avoid common mistakes, write in a consistent style, and avoid bikeshedding in PRs.
+```bash
+flutter run --dart-define=UMKREIS_DEMO=true      # auf jedem Gerät/Emulator
+flutter run -d chrome                            # Web ist immer Demo-Modus
+flutter build web --release --no-web-resources-cdn
+```
 
-Finally, it's not an either-or situation. This boilerplate demonstrates many useful patterns for building robust applications that can also be applied to Nuxt apps. That means you could build a project with Nuxt, while still using this boilerplate as a study guide.
+## Status und nächste Schritte
 
-**Can you build a Nuxt version of this boilerplate?**
+Umgesetzt ist **Phase 1 (MVP)** aus der Roadmap in `konzept/technik.md`. Die
+Logik ist durch Unit-, End-to-End- (zwei Engines über die Fake-Welt) und
+Widget-Tests abgedeckt; der echte Bluetooth-Transport ist gegen die API des
+Pakets `bluetooth_low_energy` geschrieben, aber noch **nicht auf physischen
+Geräten** getestet. Genau das ist der nächste Schritt:
 
-I have no plans to personally, but you can find Nuxt forks at [debs-obrien/nuxt-boilerplate-project](https://github.com/debs-obrien/nuxt-boilerplate-project) and [wemake-services/wemake-vue-template](https://github.com/wemake-services/wemake-vue-template).
-
-**This isn't exactly what I'm looking for. Where can I find other boilerplates and similar projects?**
-
-See the [awesome-vue](https://github.com/vuejs/awesome-vue#scaffold) repo for other great projects in the Vue ecosystem.
+1. Spike auf iPhone + Android: Sichtbarkeit, Nähe-Stufen kalibrieren, Handshake, Chat.
+2. Akku- und Verbindungs-Tuning (Scan-Duty-Cycle, MTU, Idle-Timeouts).
+3. Android Foreground Service für Hintergrund-Betrieb; iOS-Hintergrund dokumentieren.
+4. Phase 2: Bilder im Chat (L2CAP), Store-Listing, Datenschutzerklärung, TestFlight / Play Internal Testing.
+5. Phase 3: Board-Mesh (Weiterleitung über 3–5 Hops), Gruppen, Notfall-Modus.

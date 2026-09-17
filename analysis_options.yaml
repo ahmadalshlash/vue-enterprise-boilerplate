@@ -1,0 +1,13 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+
+linter:
+  rules:
+    # Benannte Konstruktor-Parameter können keine privaten Felder initialisieren.
+    prefer_initializing_formals: false
