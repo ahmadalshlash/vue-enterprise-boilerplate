@@ -6,7 +6,8 @@ plugins {
 
 android {
     namespace = "de.umkreis.umkreis"
-    compileSdk = flutter.compileSdkVersion
+    // permission_handler_android verlangt mindestens API 37.
+    compileSdk = maxOf(37, flutter.compileSdkVersion)
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
